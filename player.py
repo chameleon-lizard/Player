@@ -30,13 +30,13 @@ class GTK_Main(object):
         self.movie_window = Gtk.DrawingArea()
         vbox.add(self.movie_window)
 
-        self.file_chooser = Gtk.Button.new()
-        self.file_chooser_image = Gtk.Image()
-        self.file_chooser_image.set_from_stock(
+        self.fileChooser = Gtk.Button.new()
+        self.fileChooserImage = Gtk.Image()
+        self.fileChooserImage.set_from_stock(
             "gtk-file", Gtk.IconSize.BUTTON)
-        self.file_chooser.add(self.file_chooser_image)
-        self.file_chooser.connect("clicked", self.on_file_clicked)
-        hbox.pack_start(self.file_chooser, False, False, 5)
+        self.fileChooser.add(self.fileChooserImage)
+        self.fileChooser.connect("clicked", self.on_file_clicked)
+        hbox.pack_start(self.fileChooser, False, False, 5)
 
         self.playButtonImage = Gtk.Image()
         self.playButtonImage.set_from_stock(
@@ -101,20 +101,17 @@ class GTK_Main(object):
         self.player.set_state(Gst.State.PLAYING)
         GObject.timeout_add(1000, self.updateSlider)
 
-    def stop(self):
-        self.player.set_state(Gst.State.NULL)
+    def pause(self):
+        self.player.set_state(Gst.State.PAUSED)
 
     def playToggled(self, w):
         if self.uri == "":
             print("No uri specified")
         else:
-            self.slider.set_value(0)
-            self.label.set_text("0:00")
-
             if(self.playing == False):
                 self.play()
             else:
-                self.stop()
+                self.pause()
 
             self.playing = not(self.playing)
             self.updateButtons()
@@ -152,7 +149,7 @@ class GTK_Main(object):
                 "gtk-media-play", Gtk.IconSize.BUTTON)
         else:
             self.playButtonImage.set_from_stock(
-                "gtk-media-stop", Gtk.IconSize.BUTTON)
+                "gtk-media-pause", Gtk.IconSize.BUTTON)
 
     def on_message(self, bus, message):
         t = message.type
