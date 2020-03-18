@@ -1,3 +1,3 @@
 # Player
 
-A simple video player using GStreamer and PyGTK.
+A simple video player built using GStreamer and PyGTK.
