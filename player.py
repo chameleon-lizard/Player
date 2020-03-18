@@ -8,8 +8,7 @@ gi.require_version('Gst', '1.0')
 gi.require_version('GstVideo', '1.0')
 gi.require_version('Gtk', '3.0')
 
-
-from gi.repository import Gst, GObject, Gtk
+from gi.repository import Gst, GObject, Gtk, GLib
 from gi.repository import GdkX11, GstVideo
 
 class GTK_Main(object):
@@ -17,14 +16,15 @@ class GTK_Main(object):
     def __init__(self):
         self.playing = False
         self.uri = ""
+        self.isFullscreen = False
 
-        window = Gtk.Window(Gtk.WindowType.TOPLEVEL)
-        window.set_title("Player")
-        window.set_default_size(800, 600)
-        window.connect("destroy", Gtk.main_quit, "WM destroy")
-        vbox = Gtk.VBox(False, 2)
-        window.add(vbox)
-        hbox = Gtk.HBox(False, 2)
+        self.window = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
+        self.window.set_title("Player")
+        self.window.set_default_size(800, 600)
+        self.window.connect("destroy", Gtk.main_quit, "WM destroy")
+        vbox = Gtk.VBox(homogeneous=False, spacing=2)
+        self.window.add(vbox)
+        hbox = Gtk.HBox(homogeneous=False, spacing=2)
         vbox.pack_start(hbox, False, False, 10)
 
         self.movie_window = Gtk.DrawingArea()
@@ -32,34 +32,39 @@ class GTK_Main(object):
 
         self.fileChooser = Gtk.Button.new()
         self.fileChooserImage = Gtk.Image()
-        self.fileChooserImage.set_from_stock(
+        self.fileChooserImage.set_from_icon_name(
             "gtk-file", Gtk.IconSize.BUTTON)
         self.fileChooser.add(self.fileChooserImage)
         self.fileChooser.connect("clicked", self.on_file_clicked)
         hbox.pack_start(self.fileChooser, False, False, 5)
 
         self.playButtonImage = Gtk.Image()
-        self.playButtonImage.set_from_stock(
+        self.playButtonImage.set_from_icon_name(
             "gtk-media-play", Gtk.IconSize.BUTTON)
         self.playButton = Gtk.Button.new()
         self.playButton.add(self.playButtonImage)
         self.playButton.connect("clicked", self.playToggled)
         hbox.pack_start(self.playButton, False, False, 5)
 
-        self.slider = Gtk.HScale()
-        self.slider.set_margin_left(6)
-        self.slider.set_margin_right(6)
+        self.slider = Gtk.Scale()
         self.slider.set_draw_value(False)
         self.slider.set_range(0, 100)
         self.slider.set_increments(1, 10)
+        self.slider_handler_id = self.slider.connect("value-changed", self.on_slider_clicked)
         hbox.pack_start(self.slider, True, True, 5)
 
         self.label = Gtk.Label(label='0:00')
-        self.label.set_margin_left(6)
-        self.label.set_margin_right(6)
         hbox.pack_start(self.label, False, False, 5)
 
-        window.show_all()
+        self.fullscreenButtonImage = Gtk.Image()
+        self.fullscreenButtonImage.set_from_icon_name(
+            "gtk-fullscreen", Gtk.IconSize.BUTTON)
+        self.fullscreenButton = Gtk.Button.new()
+        self.fullscreenButton.add(self.fullscreenButtonImage)
+        self.fullscreenButton.connect("clicked", self.fullscreenToggle)
+        hbox.pack_start(self.fullscreenButton, False, False, 5)
+
+        self.window.show_all()
 
         self.player = Gst.ElementFactory.make("playbin", "player")
         bus = self.player.get_bus()
@@ -68,10 +73,23 @@ class GTK_Main(object):
         bus.connect("message", self.on_message)
         bus.connect("sync-message::element", self.on_sync_message)
 
+    def fullscreenToggle(self, widget):
+        if not self.isFullscreen:
+            self.window.fullscreen()
+            self.isFullscreen = True
+        else:
+            self.window.unfullscreen()
+            self.isFullscreen = False
+
+    def on_slider_clicked(self, widget):
+        seek_time_secs = self.slider.get_value()
+        self.player.seek_simple(Gst.Format.TIME,  Gst.SeekFlags.FLUSH |
+                                Gst.SeekFlags.KEY_UNIT, seek_time_secs * Gst.SECOND)
+
     def on_file_clicked(self, widget):
-        dialog = Gtk.FileChooserDialog("Open", None,
-                                       Gtk.FileChooserAction.OPEN,
-                                       (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+        dialog = Gtk.FileChooserDialog(title="Open", parent=None,
+                                       action=Gtk.FileChooserAction.OPEN,
+                                       buttons=(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
                                         Gtk.STOCK_OPEN, Gtk.ResponseType.OK))
 
         self.add_filters(dialog)
@@ -99,7 +117,7 @@ class GTK_Main(object):
     def play(self):
         self.player.set_property("uri", "file://" + self.uri)
         self.player.set_state(Gst.State.PLAYING)
-        GObject.timeout_add(1000, self.updateSlider)
+        GLib.timeout_add(1000, self.updateSlider)
 
     def pause(self):
         self.player.set_state(Gst.State.PAUSED)
@@ -130,7 +148,11 @@ class GTK_Main(object):
             duration = float(duration_nanosecs) / Gst.SECOND
             position = float(nanosecs) / Gst.SECOND
             self.slider.set_range(0, duration)
-            self.slider.set_value(position)
+
+            self.slider.handler_block(self.slider_handler_id)
+            self.slider.set_value(int(position))
+            self.slider.handler_unblock(self.slider_handler_id)
+
             self.label.set_text("%d" % (position / 60) +
                                 ":%02d" % (position % 60))
 
@@ -138,6 +160,7 @@ class GTK_Main(object):
 
         except Exception as e:
             # pipeline must not be ready and does not know position
+            print("kjghgukg")
             print(e)
             pass
 
@@ -145,10 +168,10 @@ class GTK_Main(object):
 
     def updateButtons(self):
         if(self.playing == False):
-            self.playButtonImage.set_from_stock(
+            self.playButtonImage.set_from_icon_name(
                 "gtk-media-play", Gtk.IconSize.BUTTON)
         else:
-            self.playButtonImage.set_from_stock(
+            self.playButtonImage.set_from_icon_name(
                 "gtk-media-pause", Gtk.IconSize.BUTTON)
 
     def on_message(self, bus, message):
