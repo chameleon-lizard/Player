@@ -1,0 +1,11 @@
+player.spec
+build/player/Analysis-00.toc
+build/player/EXE-00.toc
+build/player/PKG-00.pkg
+build/player/PKG-00.toc
+build/player/player.exe.manifest
+build/player/PYZ-00.pyz
+build/player/PYZ-00.toc
+build/player/warn-player.txt
+build/player/xref-player.html
+dist/player.exe

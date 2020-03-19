@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+# TODO: If I want to open another video, I currently have to close and open the app
+# TODO: Connect dialog and networking
+
 import sys
 import os
 import gi
@@ -14,25 +17,31 @@ from gi.repository import GdkX11, GstVideo
 class GTK_Main(object):
 
     def __init__(self):
+        # Class variables
+        self.updateTime = True
         self.playing = False
         self.uri = ""
         self.isFullscreen = False
         self.menuVisible = True
 
+        # Window
         self.window = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
         self.window.set_title("Player")
         self.window.set_default_size(800, 600)
         self.window.connect("destroy", Gtk.main_quit, "WM destroy")
         self.window.connect('key-press-event', self.on_keypress)
 
+        # Boxes for video and bar
         self.vbox = Gtk.VBox(homogeneous=False, spacing=2)
         self.window.add(self.vbox)
         self.hbox = Gtk.HBox(homogeneous=False, spacing=2)
         self.vbox.pack_start(self.hbox, False, False, 10)
 
+        # Movie space
         self.movie_window = Gtk.DrawingArea()
         self.vbox.add(self.movie_window)
 
+        # Menu button
         self.menuButton = Gtk.Button.new()
         self.menuButtonImage = Gtk.Image()
         self.menuButtonImage.set_from_icon_name(
@@ -41,12 +50,16 @@ class GTK_Main(object):
         self.menuButton.connect("clicked", self.menu_clicked)
         self.hbox.pack_end(self.menuButton, False, False, 5)        
 
+        # Popover menu
         self.popover = Gtk.Popover()
-        self.popover.set_border_width(5)
+        self.popover.set_border_width(10)
         self.hboxMenu = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        self.popover.add(self.hboxMenu)
+        self.vboxMenu = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.popover.add(self.vboxMenu)
+        self.vboxMenu.pack_start(self.hboxMenu, False, False, 5)
         self.popover.set_position(Gtk.PositionType.BOTTOM)
 
+        # File chooser button for the popover menu
         self.fileChooser = Gtk.Button.new()
         self.fileChooserImage = Gtk.Image()
         self.fileChooserImage.set_from_icon_name(
@@ -55,6 +68,38 @@ class GTK_Main(object):
         self.fileChooser.connect("clicked", self.on_file_clicked)
         self.hboxMenu.pack_start(self.fileChooser, False, False, 10)
 
+        # Fullscreen button for the popover menu
+        self.fullscreenButtonImage = Gtk.Image()
+        self.fullscreenButtonImage.set_from_icon_name(
+            "gtk-fullscreen", Gtk.IconSize.BUTTON)
+        self.fullscreenButton = Gtk.Button.new()
+        self.fullscreenButton.add(self.fullscreenButtonImage)
+        self.fullscreenButton.connect("clicked", self.fullscreenToggle)
+        self.hboxMenu.pack_start(self.fullscreenButton, False, False, 10)
+
+        # Connect button for the popover menu
+        self.connectButtonImage = Gtk.Image()
+        self.connectButtonImage.set_from_icon_name(
+                "insert-link", Gtk.IconSize.BUTTON)
+        self.connectButton = Gtk.Button.new()
+        self.connectButton.add(self.connectButtonImage)
+        self.connectButton.connect("clicked", self.connectDialog)
+        self.hboxMenu.pack_start(self.connectButton, False, False, 10)
+
+        # Label with info for the popover menu
+        self.labelInfo = Gtk.Label(label="Press h to hide the bar")
+        self.vboxMenu.pack_start(self.labelInfo, False, False, 5)
+
+        # Seek left button for the bar
+        self.seekLeftButtonImage = Gtk.Image()
+        self.seekLeftButtonImage.set_from_icon_name(
+            "media-seek-backward", Gtk.IconSize.BUTTON)
+        self.seekLeftButton = Gtk.Button.new()
+        self.seekLeftButton.add(self.seekLeftButtonImage)
+        self.seekLeftButton.connect("clicked", self.seek_left)
+        self.hbox.pack_start(self.seekLeftButton, False, False, 5)
+
+        # Play button for the bar
         self.playButtonImage = Gtk.Image()
         self.playButtonImage.set_from_icon_name(
             "gtk-media-play", Gtk.IconSize.BUTTON)
@@ -63,29 +108,35 @@ class GTK_Main(object):
         self.playButton.connect("clicked", self.playToggled)
         self.hbox.pack_start(self.playButton, False, False, 5)
 
+        # Seek left button for the bar
+        self.seekRightButtonImage = Gtk.Image()
+        self.seekRightButtonImage.set_from_icon_name(
+            "media-seek-forward", Gtk.IconSize.BUTTON)
+        self.seekRightButton = Gtk.Button.new()
+        self.seekRightButton.add(self.seekRightButtonImage)
+        self.seekRightButton.connect("clicked", self.seek_right)
+        self.hbox.pack_start(self.seekRightButton, False, False, 5)
+
+        # Slider for seeking
         self.slider = Gtk.Scale()
         self.slider.set_draw_value(False)
         self.slider.set_range(0, 100)
-        self.slider.set_increments(1, 10)
+        self.slider.set_increments(1, 100)
         self.slider_handler_id = self.slider.connect("value-changed", self.on_slider_clicked)
         self.hbox.pack_start(self.slider, True, True, 5)
 
+        # Time label
         self.label = Gtk.Label(label='0:00')
         self.hbox.pack_start(self.label, False, False, 5)
 
-        self.fullscreenButtonImage = Gtk.Image()
-        self.fullscreenButtonImage.set_from_icon_name(
-            "gtk-fullscreen", Gtk.IconSize.BUTTON)
-        self.fullscreenButton = Gtk.Button.new()
-        self.fullscreenButton.add(self.fullscreenButtonImage)
-        self.fullscreenButton.connect("clicked", self.fullscreenToggle)
-        self.hboxMenu.pack_start(self.fullscreenButton, False, False, 5)
-
+        # TODO: Fix separator not showing
         self.separator = Gtk.HSeparator()
         self.vbox.pack_end(self.separator, False, False, 1)
 
+        # Showing all the stuff
         self.window.show_all()
 
+        # GStreamer configuration
         self.player = Gst.ElementFactory.make("playbin", "player")
         bus = self.player.get_bus()
         bus.add_signal_watch()
@@ -93,6 +144,7 @@ class GTK_Main(object):
         bus.connect("message", self.on_message)
         bus.connect("sync-message::element", self.on_sync_message)
 
+    # For handling keyboard shortcuts
     def on_keypress(self, widget, event):
         if event.keyval == Gdk.KEY_H or event.keyval == Gdk.KEY_h: 
             if (self.menuVisible):
@@ -102,19 +154,28 @@ class GTK_Main(object):
                 self.hbox.show()
                 self.menuVisible = True
 
+    # Popup menu
     def menu_clicked(self, widget):
         self.popover.set_relative_to(widget)
         self.popover.show_all()
         self.popover.popup()
 
+    # Toggling fullscreen
     def fullscreenToggle(self, widget):
         if not self.isFullscreen:
             self.window.fullscreen()
             self.isFullscreen = True
+            self.updateButtons()
         else:
             self.window.unfullscreen()
             self.isFullscreen = False
+            self.updateButtons()
 
+    # TODO: Connect dialog
+    def connectDialog(self, widget):
+        pass
+
+    # Creating file chooser dialog
     def on_file_clicked(self, widget):
         dialog = Gtk.FileChooserDialog(title="Open", parent=None,
                                        action=Gtk.FileChooserAction.OPEN,
@@ -130,7 +191,9 @@ class GTK_Main(object):
             print("Cancelled")
 
         dialog.destroy()
+        self.updateTime = True
 
+    # Adding filters for file chooser dialog
     def add_filters(self, dialog):
         filter_any = Gtk.FileFilter()
         filter_any.set_name("Any files")
@@ -157,20 +220,27 @@ class GTK_Main(object):
         filter_any.add_pattern("*.mp3")
         dialog.add_filter(filter_any)
 
+
+    # If the video ends, this starts
     def on_finished(self, player):
         self.playing = False
         self.slider.set_value(0)
         self.label.set_text("0:00")
         self.updateButtons()
 
+    # Called if we want to continue (or start) the video
     def play(self):
         self.player.set_property("uri", "file://" + self.uri)
         self.player.set_state(Gst.State.PLAYING)
-        GLib.timeout_add(1000, self.updateSlider)
+        GLib.timeout_add(5, self.updateSlider)
+        self.playing = True
 
+    # Called if we want to pause the video
     def pause(self):
         self.player.set_state(Gst.State.PAUSED)
+        self.playing = False
 
+    # Called if we toggle the video
     def playToggled(self, w):
         if self.uri == "":
             print("No uri specified")
@@ -180,15 +250,54 @@ class GTK_Main(object):
             else:
                 self.pause()
 
-            self.playing = not(self.playing)
             self.updateButtons()
 
+    # Called when we seek
     def on_slider_clicked(self, widget):
+        if self.playing:
+            self.pause()
+            self.updateButtons()
         seek_time_secs = self.slider.get_value()
         self.player.seek_simple(Gst.Format.TIME,  Gst.SeekFlags.FLUSH |
                                 Gst.SeekFlags.KEY_UNIT, seek_time_secs * Gst.SECOND)
+        self.play()
+        self.updateButtons()
+        
+    # Called when we seek left
+    def seek_left(self, widget):
+        seek_time_secs = self.player.query_position(Gst.Format.TIME)[1] / Gst.SECOND
+        seek_time_secs -= 10
+        if seek_time_secs <= 0:
+            seek_time_secs = 0
+        self.player.seek_simple(Gst.Format.TIME,  Gst.SeekFlags.FLUSH |
+                                Gst.SeekFlags.KEY_UNIT, seek_time_secs * Gst.SECOND)
 
+    # Called when we seek right
+    def seek_right(self, widget):
+        seek_time_secs = self.player.query_position(Gst.Format.TIME)[1] / Gst.SECOND
+        seek_time_secs += 10
+        if seek_time_secs >= self.player.query_duration(Gst.Format.TIME)[1] / Gst.SECOND:
+            seek_time_secs = 0
+            self.pause()
+            self.updateButtons()
+            self.updateSlider()
+            return
+            
+        self.player.seek_simple(Gst.Format.TIME,  Gst.SeekFlags.FLUSH |
+                                Gst.SeekFlags.KEY_UNIT, seek_time_secs * Gst.SECOND)
+        self.updateSlider()
+
+
+    # Called when the slider is updated
     def updateSlider(self):
+        if self.updateTime:
+            self.slider.set_increments(
+                1, self.player.query_duration(Gst.Format.TIME)[1] / Gst.SECOND)
+            self.slider.set_range(
+                0, self.player.query_duration(Gst.Format.TIME)[1] / Gst.SECOND)
+
+            self.updateTime = False
+    
         if(self.playing == False):
             return False  # cancel timeout
 
@@ -197,7 +306,6 @@ class GTK_Main(object):
             duration_nanosecs = self.player.query_duration(Gst.Format.TIME)[1]
 
             # block seek handler so we don't seek when we set_value()
-            # self.slider.handler_block_by_func(self.on_slider_change)
 
             duration = float(duration_nanosecs) / Gst.SECOND
             position = float(nanosecs) / Gst.SECOND
@@ -210,24 +318,30 @@ class GTK_Main(object):
             self.label.set_text("%d" % (position / 60) +
                                 ":%02d" % (position % 60))
 
-            # self.slider.handler_unblock_by_func(self.on_slider_change)
-
         except Exception as e:
             # pipeline must not be ready and does not know position
-            print("kjghgukg")
             print(e)
             pass
 
         return True
 
+    # Updating the buttons
     def updateButtons(self):
-        if(self.playing == False):
+        if not self.playing:
             self.playButtonImage.set_from_icon_name(
                 "gtk-media-play", Gtk.IconSize.BUTTON)
         else:
             self.playButtonImage.set_from_icon_name(
                 "gtk-media-pause", Gtk.IconSize.BUTTON)
+        
+        if self.isFullscreen:
+            self.fullscreenButtonImage.set_from_icon_name(
+                "view-restore", Gtk.IconSize.BUTTON)
+        else:
+            self.fullscreenButtonImage.set_from_icon_name(
+                "gtk-fullscreen", Gtk.IconSize.BUTTON)
 
+    # Called when we receive a message
     def on_message(self, bus, message):
         t = message.type
         if t == Gst.MessageType.EOS:
