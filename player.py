@@ -2,6 +2,10 @@
 
 # TODO: If I want to open another video, I currently have to close and open the app
 # TODO: Connect dialog and networking
+# TODO: Sound volume control
+# TODO: Time in label for hours too
+# TODO: Command line parameters
+# TODO: Minimal window size - 800x600
 
 import sys
 import os
@@ -37,9 +41,16 @@ class GTK_Main(object):
         self.hbox = Gtk.HBox(homogeneous=False, spacing=2)
         self.vbox.pack_start(self.hbox, False, False, 10)
 
-        # Movie space
+        # Movie space and eventbox for it
         self.movie_window = Gtk.DrawingArea()
-        self.vbox.add(self.movie_window)
+        self.eventbox = Gtk.EventBox.new()
+        self.eventbox.set_above_child(False)
+        self.eventbox.connect("button_press_event", self.movie_button_press)
+        self.eventbox.add(self.movie_window)
+        self.vbox.add(self.eventbox)
+        self.eventbox.set_events(Gdk.EventMask.BUTTON_PRESS_MASK)
+        self.eventbox.realize()
+
 
         # Menu button
         self.menuButton = Gtk.Button.new()
@@ -71,7 +82,7 @@ class GTK_Main(object):
         # Fullscreen button for the popover menu
         self.fullscreenButtonImage = Gtk.Image()
         self.fullscreenButtonImage.set_from_icon_name(
-            "gtk-fullscreen", Gtk.IconSize.BUTTON)
+                "gtk-fullscreen", Gtk.IconSize.BUTTON)
         self.fullscreenButton = Gtk.Button.new()
         self.fullscreenButton.add(self.fullscreenButtonImage)
         self.fullscreenButton.connect("clicked", self.fullscreenToggle)
@@ -85,6 +96,15 @@ class GTK_Main(object):
         self.connectButton.add(self.connectButtonImage)
         self.connectButton.connect("clicked", self.connectDialog)
         self.hboxMenu.pack_start(self.connectButton, False, False, 10)
+
+        # Slider for volume in popover menu
+        self.volumeSlider = Gtk.Scale()
+        self.volumeSlider.set_draw_value(False)
+        self.volumeSlider.set_range(0, 100)
+        self.volumeSlider.set_increments(1, 100)
+        self.volumeSlider.set_value(100)
+        self.volumeSlider_handler_id = self.volumeSlider.connect("value-changed", self.on_volume_slider_clicked)
+        self.vboxMenu.pack_start(self.volumeSlider, True, True, 5)
 
         # Label with info for the popover menu
         self.labelInfo = Gtk.Label(label="Press h to hide the bar")
@@ -143,6 +163,13 @@ class GTK_Main(object):
         bus.enable_sync_message_emission()
         bus.connect("message", self.on_message)
         bus.connect("sync-message::element", self.on_sync_message)
+
+    # Single and doubleclick on movie space
+    def movie_button_press(self, widget, event):
+        if event.type == Gdk.EventType._2BUTTON_PRESS:
+            self.fullscreenToggle(widget)
+        elif event.type == Gdk.EventType.BUTTON_PRESS:
+            self.playToggled(widget)
 
     # For handling keyboard shortcuts
     def on_keypress(self, widget, event):
@@ -220,6 +247,13 @@ class GTK_Main(object):
         filter_any.add_pattern("*.mp3")
         dialog.add_filter(filter_any)
 
+    # Sound volume
+    def on_volume_slider_clicked(self, widget):
+        control = Gst.Controller(self.player, "volume")
+        control.set_interpolation_mode("volume", Gst.INTERPOLATE_LINEAR)
+
+        volume = self.slider.get_value()
+        control.set("volume", volume * Gst.SECOND, 0.0)
 
     # If the video ends, this starts
     def on_finished(self, player):
