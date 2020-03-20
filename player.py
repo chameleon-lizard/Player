@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # TODO: If I want to open another video, I currently have to close and open the app
 # TODO: Connect dialog and networking
@@ -28,10 +28,18 @@ class GTK_Main(object):
         self.isFullscreen = False
         self.menuVisible = True
 
-        # Window
+        # Window and its geometry
+        geometry = Gdk.Geometry()
+        geometry.min_width = 800
+        geometry.min_height = 600
+        geometry.base_width = -1
+        geometry.base_height = -1
+        geometry.width_inc = -1
+        geometry.height_inc = -1
         self.window = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
         self.window.set_title("Player")
         self.window.set_default_size(800, 600)
+        self.window.set_geometry_hints(self.window, geometry, Gdk.WindowHints.MIN_SIZE)
         self.window.connect("destroy", Gtk.main_quit, "WM destroy")
         self.window.connect('key-press-event', self.on_keypress)
 
