@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 
-# TODO: If I want to open another video, I currently have to close and open the app
 # TODO: Connect dialog and networking
 # TODO: Sound volume control
 # TODO: Time in label for hours too
 # TODO: Command line parameters
-# TODO: Minimal window size - 800x600
 
 import sys
 import os
@@ -58,7 +56,6 @@ class GTK_Main(object):
         self.vbox.add(self.eventbox)
         self.eventbox.set_events(Gdk.EventMask.BUTTON_PRESS_MASK)
         self.eventbox.realize()
-
 
         # Menu button
         self.menuButton = Gtk.Button.new()
@@ -212,6 +209,7 @@ class GTK_Main(object):
 
     # Creating file chooser dialog
     def on_file_clicked(self, widget):
+        self.player.set_state(Gst.State.PAUSED)
         dialog = Gtk.FileChooserDialog(title="Open", parent=None,
                                        action=Gtk.FileChooserAction.OPEN,
                                        buttons=(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
@@ -221,12 +219,18 @@ class GTK_Main(object):
 
         response = dialog.run()
         if response == Gtk.ResponseType.OK:
+            if self.uri != "":
+                self.player.set_state(Gst.State.NULL)
+                self.playing = False
             self.uri = dialog.get_filename()
         elif response == Gtk.ResponseType.CANCEL:
             print("Cancelled")
 
         dialog.destroy()
+
         self.updateTime = True
+        self.playToggled(widget)
+
 
     # Adding filters for file chooser dialog
     def add_filters(self, dialog):
@@ -357,8 +361,13 @@ class GTK_Main(object):
             self.slider.set_value(int(position))
             self.slider.handler_unblock(self.slider_handler_id)
 
-            self.label.set_text("%d" % (position / 60) +
-                                ":%02d" % (position % 60))
+            if position / 3600 < 1:
+                self.label.set_text("%d" % (position / 60) +
+                                    ":%02d" % (position % 60))
+            else:
+                self.label.set_text("%d:" % (position / 3600) +
+                                    "%02d" % (position % 3600 / 60) +
+                                    ":%02d" % (position % 60))
 
         except Exception as e:
             # pipeline must not be ready and does not know position
