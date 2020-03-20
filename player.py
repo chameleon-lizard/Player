@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
 # TODO: Connect dialog and networking
-# TODO: Sound volume control
-# TODO: Time in label for hours too
+# TODO: Fix weird seek right by keyboard shortcut bug
 # TODO: Command line parameters
 
 import sys
@@ -102,15 +101,6 @@ class GTK_Main(object):
         self.connectButton.connect("clicked", self.connectDialog)
         self.hboxMenu.pack_start(self.connectButton, False, False, 10)
 
-        # Slider for volume in popover menu
-        self.volumeSlider = Gtk.Scale()
-        self.volumeSlider.set_draw_value(False)
-        self.volumeSlider.set_range(0, 100)
-        self.volumeSlider.set_increments(1, 100)
-        self.volumeSlider.set_value(100)
-        self.volumeSlider_handler_id = self.volumeSlider.connect("value-changed", self.on_volume_slider_clicked)
-        self.vboxMenu.pack_start(self.volumeSlider, True, True, 5)
-
         # Label with info for the popover menu
         self.labelInfo = Gtk.Label(label="Press h to hide the bar")
         self.vboxMenu.pack_start(self.labelInfo, False, False, 5)
@@ -154,10 +144,6 @@ class GTK_Main(object):
         self.label = Gtk.Label(label='0:00')
         self.hbox.pack_start(self.label, False, False, 5)
 
-        # TODO: Fix separator not showing
-        self.separator = Gtk.HSeparator()
-        self.vbox.pack_end(self.separator, False, False, 1)
-
         # Showing all the stuff
         self.window.show_all()
 
@@ -185,6 +171,17 @@ class GTK_Main(object):
             else:
                 self.hbox.show()
                 self.menuVisible = True
+        elif event.keyval == Gdk.KEY_Right:
+            self.seek_right(widget)
+        elif event.keyval == Gdk.KEY_Left:
+            self.seek_left(widget)
+        elif event.keyval == Gdk.KEY_space:
+            self.playToggled(widget)
+        elif event.keyval == Gdk.KEY_Escape:
+            if self.isFullscreen:
+                self.fullscreenToggle(widget)
+            else:
+                pass
 
     # Popup menu
     def menu_clicked(self, widget):
@@ -258,14 +255,6 @@ class GTK_Main(object):
         filter_any.set_name("MP3 Audio")
         filter_any.add_pattern("*.mp3")
         dialog.add_filter(filter_any)
-
-    # Sound volume
-    def on_volume_slider_clicked(self, widget):
-        control = Gst.Controller(self.player, "volume")
-        control.set_interpolation_mode("volume", Gst.INTERPOLATE_LINEAR)
-
-        volume = self.slider.get_value()
-        control.set("volume", volume * Gst.SECOND, 0.0)
 
     # If the video ends, this starts
     def on_finished(self, player):
