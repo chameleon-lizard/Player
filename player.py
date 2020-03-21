@@ -3,7 +3,6 @@
 # TODO: Networking
 
 import sys
-import os
 import gi
 
 gi.require_version('Gst', '1.0')
@@ -116,6 +115,7 @@ class GTK_Main(object):
             "media-seek-backward", Gtk.IconSize.BUTTON)
         self.seekLeftButton = Gtk.Button.new()
         self.seekLeftButton.add(self.seekLeftButtonImage)
+        self.seekLeftButton.set_can_focus(False)
         self.seekLeftButton.connect("clicked", self.seek_left)
         self.hbox.pack_start(self.seekLeftButton, False, False, 5)
 
@@ -251,6 +251,9 @@ class GTK_Main(object):
         response = dialog.run()
         if response == Gtk.ResponseType.OK:
             print("Connecting")
+            self.ip = ipEntry.get_text()
+            self.password = passwordEntry.get_text()
+            print(self.ip, self.password)
         elif response == Gtk.ResponseType.CANCEL:
             print("Cancelled")
 
@@ -345,6 +348,7 @@ class GTK_Main(object):
             seek_time_secs = 0
         self.player.seek_simple(Gst.Format.TIME,  Gst.SeekFlags.FLUSH |
                                 Gst.SeekFlags.KEY_UNIT, seek_time_secs * Gst.SECOND)
+        self.updateSlider()
 
     # Called when we seek right
     def seek_right(self, widget):
@@ -360,7 +364,6 @@ class GTK_Main(object):
         self.player.seek_simple(Gst.Format.TIME,  Gst.SeekFlags.FLUSH |
                                 Gst.SeekFlags.KEY_UNIT, seek_time_secs * Gst.SECOND)
         self.updateSlider()
-
 
     # Called when the slider is updated
     def updateSlider(self):
