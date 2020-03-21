@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 # TODO: Networking
-# TODO: Fix weird seek right by keyboard shortcut bug
 
 import sys
 import os
@@ -20,7 +19,7 @@ class GTK_Main(object):
         # Class variables
         self.updateTime = True
         self.playing = False
-        if len(sys.argv) == 0:
+        if len(sys.argv) == 1:
             self.uri = ""
         else:
             self.uri = sys.argv[1]
@@ -64,6 +63,7 @@ class GTK_Main(object):
         self.menuButtonImage.set_from_icon_name(
             "open-menu-symbolic", Gtk.IconSize.BUTTON)
         self.menuButton.add(self.menuButtonImage)
+        self.menuButton.set_can_focus(False)
         self.menuButton.connect("clicked", self.menu_clicked)
         self.hbox.pack_end(self.menuButton, False, False, 5)        
 
@@ -82,6 +82,7 @@ class GTK_Main(object):
         self.fileChooserImage.set_from_icon_name(
             "gtk-file", Gtk.IconSize.BUTTON)
         self.fileChooser.add(self.fileChooserImage)
+        self.fileChooser.set_can_focus(False)
         self.fileChooser.connect("clicked", self.on_file_clicked)
         self.hboxMenu.pack_start(self.fileChooser, False, False, 10)
 
@@ -91,6 +92,7 @@ class GTK_Main(object):
                 "gtk-fullscreen", Gtk.IconSize.BUTTON)
         self.fullscreenButton = Gtk.Button.new()
         self.fullscreenButton.add(self.fullscreenButtonImage)
+        self.fullscreenButton.set_can_focus(False)
         self.fullscreenButton.connect("clicked", self.fullscreenToggle)
         self.hboxMenu.pack_start(self.fullscreenButton, False, False, 10)
 
@@ -100,6 +102,7 @@ class GTK_Main(object):
                 "insert-link", Gtk.IconSize.BUTTON)
         self.connectButton = Gtk.Button.new()
         self.connectButton.add(self.connectButtonImage)
+        self.connectButton.set_can_focus(False)
         self.connectButton.connect("clicked", self.connectDialog)
         self.hboxMenu.pack_start(self.connectButton, False, False, 10)
 
@@ -122,6 +125,7 @@ class GTK_Main(object):
             "gtk-media-play", Gtk.IconSize.BUTTON)
         self.playButton = Gtk.Button.new()
         self.playButton.add(self.playButtonImage)
+        self.playButton.set_can_focus(False)
         self.playButton.connect("clicked", self.playToggled)
         self.hbox.pack_start(self.playButton, False, False, 5)
 
@@ -131,6 +135,7 @@ class GTK_Main(object):
             "media-seek-forward", Gtk.IconSize.BUTTON)
         self.seekRightButton = Gtk.Button.new()
         self.seekRightButton.add(self.seekRightButtonImage)
+        self.seekRightButton.set_can_focus(False)
         self.seekRightButton.connect("clicked", self.seek_right)
         self.hbox.pack_start(self.seekRightButton, False, False, 5)
 
@@ -139,6 +144,7 @@ class GTK_Main(object):
         self.slider.set_draw_value(False)
         self.slider.set_range(0, 100)
         self.slider.set_increments(1, 100)
+        self.slider.set_can_focus(False)
         self.slider_handler_id = self.slider.connect("value-changed", self.on_slider_clicked)
         self.hbox.pack_start(self.slider, True, True, 5)
 
@@ -158,15 +164,19 @@ class GTK_Main(object):
         bus.connect("sync-message::element", self.on_sync_message)
 
         # Start playing if the uri for the video was given via command line parameter
-        self.updateTime = True
-        self.playToggled(self.playButton)
+        if self.uri != "":
+            self.updateTime = True
+            self.playToggled(self.playButton)
 
     # Single and doubleclick on movie space
     def movie_button_press(self, widget, event):
         if event.type == Gdk.EventType._2BUTTON_PRESS:
             self.fullscreenToggle(widget)
         elif event.type == Gdk.EventType.BUTTON_PRESS:
-            self.playToggled(widget)
+            if self.uri == "":
+                self.on_file_clicked(widget)
+            else:
+                self.playToggled(widget)
 
     # For handling keyboard shortcuts
     def on_keypress(self, widget, event):
