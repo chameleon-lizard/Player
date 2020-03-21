@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# TODO: Connect dialog and networking
+# TODO: Networking
 # TODO: Fix weird seek right by keyboard shortcut bug
 # TODO: Command line parameters
 
@@ -191,6 +191,9 @@ class GTK_Main(object):
 
     # Toggling fullscreen
     def fullscreenToggle(self, widget):
+        if widget == self.fullscreenButton:
+            self.popover.popdown()
+
         if not self.isFullscreen:
             self.window.fullscreen()
             self.isFullscreen = True
@@ -202,15 +205,49 @@ class GTK_Main(object):
 
     # TODO: Connect dialog
     def connectDialog(self, widget):
-        pass
+        self.popover.popdown()
+
+        dialog = Gtk.Dialog(title="Remote play", parent=self.window,
+                                       modal=True, destroy_with_parent=False, 
+                                       use_header_bar=True)
+        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+
+        labelInfo = Gtk.Label(label="Please, connect to the server")
+
+        ipEntry = Gtk.Entry()
+        ipEntry.set_placeholder_text("IP address")
+
+        passwordEntry = Gtk.Entry()
+        passwordEntry.set_placeholder_text("Password")
+        passwordEntry.set_invisible_char("•")
+        passwordEntry.set_visibility(False)
+
+        hbox.pack_start(ipEntry, False, False, 5)
+        hbox.pack_start(passwordEntry, False, False, 5)
+        dialog.vbox.pack_start(labelInfo, False, False, 5)
+        dialog.vbox.pack_end(hbox, False, False, 10)
+
+        dialog.add_button("OK", Gtk.ResponseType.OK)
+        dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
+
+        dialog.show_all()
+
+        response = dialog.run()
+        if response == Gtk.ResponseType.OK:
+            print("Connecting")
+        elif response == Gtk.ResponseType.CANCEL:
+            print("Cancelled")
+
+        dialog.destroy()
 
     # Creating file chooser dialog
     def on_file_clicked(self, widget):
+        self.popover.popdown()
         self.player.set_state(Gst.State.PAUSED)
-        dialog = Gtk.FileChooserDialog(title="Open", parent=None,
-                                       action=Gtk.FileChooserAction.OPEN,
-                                       buttons=(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-                                        Gtk.STOCK_OPEN, Gtk.ResponseType.OK))
+        dialog = Gtk.FileChooserDialog(title="Open", parent=self.window,
+                                       action=Gtk.FileChooserAction.OPEN)
+        dialog.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
+        dialog.add_button(Gtk.STOCK_OPEN, Gtk.ResponseType.OK)
 
         self.add_filters(dialog)
 
@@ -220,6 +257,7 @@ class GTK_Main(object):
                 self.player.set_state(Gst.State.NULL)
                 self.playing = False
             self.uri = dialog.get_filename()
+            print(self.uri)
         elif response == Gtk.ResponseType.CANCEL:
             print("Cancelled")
 
@@ -232,29 +270,14 @@ class GTK_Main(object):
     # Adding filters for file chooser dialog
     def add_filters(self, dialog):
         filter_any = Gtk.FileFilter()
-        filter_any.set_name("Any files")
-        filter_any.add_pattern("*")
+        filter_any.set_name("Any videos")
+        filter_any.add_mime_type("video/*")
         dialog.add_filter(filter_any)
 
-        filter_any = Gtk.FileFilter()
-        filter_any.set_name("MP4 Videos")
-        filter_any.add_pattern("*.mp4")
-        dialog.add_filter(filter_any)
-
-        filter_any = Gtk.FileFilter()
-        filter_any.set_name("WEBM Videos")
-        filter_any.add_pattern("*.webm")
-        dialog.add_filter(filter_any)
-
-        filter_any = Gtk.FileFilter()
-        filter_any.set_name("MKV Videos")
-        filter_any.add_pattern("*.mkv")
-        dialog.add_filter(filter_any)
-
-        filter_any = Gtk.FileFilter()
-        filter_any.set_name("MP3 Audio")
-        filter_any.add_pattern("*.mp3")
-        dialog.add_filter(filter_any)
+        filter_audio = Gtk.FileFilter()
+        filter_audio.set_name("Any audio")
+        filter_audio.add_mime_type("audio/*")
+        dialog.add_filter(filter_audio)
 
     # If the video ends, this starts
     def on_finished(self, player):
@@ -345,6 +368,10 @@ class GTK_Main(object):
             duration = float(duration_nanosecs) / Gst.SECOND
             position = float(nanosecs) / Gst.SECOND
             self.slider.set_range(0, duration)
+
+            self.slider.handler_block(self.slider_handler_id)
+            self.slider.set_value(int(position))
+            self.slider.handler_unblock(self.slider_handler_id)
 
             self.slider.handler_block(self.slider_handler_id)
             self.slider.set_value(int(position))
