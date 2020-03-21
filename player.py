@@ -2,7 +2,6 @@
 
 # TODO: Networking
 # TODO: Fix weird seek right by keyboard shortcut bug
-# TODO: Command line parameters
 
 import sys
 import os
@@ -21,7 +20,10 @@ class GTK_Main(object):
         # Class variables
         self.updateTime = True
         self.playing = False
-        self.uri = ""
+        if len(sys.argv) == 0:
+            self.uri = ""
+        else:
+            self.uri = sys.argv[1]
         self.isFullscreen = False
         self.menuVisible = True
 
@@ -154,6 +156,10 @@ class GTK_Main(object):
         bus.enable_sync_message_emission()
         bus.connect("message", self.on_message)
         bus.connect("sync-message::element", self.on_sync_message)
+
+        # Start playing if the uri for the video was given via command line parameter
+        self.updateTime = True
+        self.playToggled(self.playButton)
 
     # Single and doubleclick on movie space
     def movie_button_press(self, widget, event):
