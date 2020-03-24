@@ -235,7 +235,7 @@ class GTK_Main(object):
 
         passwordEntry = Gtk.Entry()
         passwordEntry.set_placeholder_text("Password")
-        passwordEntry.set_invisible_char("•")
+        passwordEntry.set_invisible_char("#")
         passwordEntry.set_visibility(False)
 
         hbox.pack_start(ipEntry, False, False, 5)
